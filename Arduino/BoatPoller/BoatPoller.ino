@@ -17,6 +17,15 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
+
+int redPin = 5;
+int greenPin = 6;
+int bluePin = 3;
+
+int frame = 100;
+
+int maxbrightness = 30;
+
 // Enter a MAC address for your controller below.
 // Newer Ethernet shields have a MAC address printed on a sticker on the shield
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -36,12 +45,16 @@ String lastTweetId = "NO TWEET NO GAIN";
 String tweetBuffer = "";
 
 void setup() {
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  Serial.println("In A...");
+  Serial.println("DHCP...");
 
   // start the Ethernet connection:
   if (Ethernet.begin(mac) == 0) {
@@ -55,6 +68,7 @@ void setup() {
 
   // if you get a connection, report back via serial:
   getTweetId();
+  resetLeds();
 }
 
 void getTweetId() {
@@ -70,6 +84,34 @@ void getTweetId() {
   } else {
     // if you didn't get a connection to the server:
     Serial.println("connection failed");
+  }
+}
+
+void resetLeds() {
+  analogWrite(redPin, 0.0f);
+  analogWrite(greenPin, 0.0f);
+  analogWrite(bluePin, 0.0f);
+}
+
+void blinkLeds(int c1, int c2) {
+  resetLeds();
+  analogWrite(c1, maxbrightness);
+  delay(frame);
+  resetLeds();
+  analogWrite(c2, maxbrightness);
+  delay(frame);
+  resetLeds();
+}
+
+void ledSequence() {
+  for(int i=0; i<15; i++) {
+    blinkLeds(bluePin, 1000); // #nopin
+  }
+  for(int i=0; i<10; i++) {
+    blinkLeds(bluePin, redPin);
+  }
+  for(int i=0; i<10; i++) {
+    blinkLeds(greenPin, redPin);
   }
 }
 
@@ -97,6 +139,7 @@ void loop() {
     if(tweetBuffer != lastTweetId && tweetBuffer.length() > 5) {
       Serial.println("\\o/ " + lastTweetId + " \\o/");
       lastTweetId = tweetBuffer;
+      ledSequence();
     }
 
     // do nothing forevermore:
