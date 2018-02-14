@@ -17,34 +17,29 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
-
+// LED Related Stuff
 int redPin = 5;
 int greenPin = 6;
 int bluePin = 3;
 
 int frame = 100;
-
 int maxbrightness = 30;
 
-// Enter a MAC address for your controller below.
-// Newer Ethernet shields have a MAC address printed on a sticker on the shield
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-// if you don't want to use DNS (and reduce your sketch size)
-// use the numeric IP instead of the name for the server:
-//IPAddress server(74,125,232,128);  // numeric IP for Google (no DNS)
-char server[] = "92.222.89.148";    // name address for Google (using DNS)
-  
-// Set the static IP address to use if the DHCP fails to assign
-IPAddress ip(192, 168, 0, 177);
-
-// Initialize the Ethernet client library
-// with the IP address and port of the server
-// that you want to connect to (port 80 is default for HTTP):
-EthernetClient client;
-String lastTweetId = "NO TWEET NO GAIN";
+// Tweet Related Stuff
+String lastTweetId = "NO TWEET YET";
 String tweetBuffer = "";
 
+// Ethernet related stuff
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+char server[] = "92.222.89.148";    // IP of the server  
+// Set the static IP address to use if the DHCP fails to assign
+IPAddress ip(192, 168, 0, 177);
+EthernetClient client;
+
+
+// Setup phase
 void setup() {
+  // Initialize GPIOs
   pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
@@ -54,25 +49,29 @@ void setup() {
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  Serial.println("DHCP...");
+  
+  Serial.println("Getting DHCP...");
 
   // start the Ethernet connection:
   if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
-    // try to congifure using IP address instead of DHCP:
     Ethernet.begin(mac, ip);
   }
+  
   // give the Ethernet shield a second to initialize:
   delay(1000);
   Serial.println("connecting...");
 
-  // if you get a connection, report back via serial:
+  // Start fetching last tweet
   getTweetId();
+  // Reset GPIOs
   resetLeds();
 }
 
+// This function launches a HTTP request to the server to fetch the ID of the last interesting tweet
+// Picking interesting tweets is all done on the server side
 void getTweetId() {
-  Serial.println("Pollingomy");
+  //Serial.println("Polling");
   tweetBuffer = "";
   if (client.connect(server, 3030)) {
     //Serial.println("connected");
@@ -87,12 +86,14 @@ void getTweetId() {
   }
 }
 
+// Reset GPIOs
 void resetLeds() {
   analogWrite(redPin, 0.0f);
   analogWrite(greenPin, 0.0f);
   analogWrite(bluePin, 0.0f);
 }
 
+// This function makes two leds blink alternatively
 void blinkLeds(int c1, int c2) {
   resetLeds();
   analogWrite(c1, maxbrightness);
@@ -103,6 +104,8 @@ void blinkLeds(int c1, int c2) {
   resetLeds();
 }
 
+// This is the GPIO sequence to play when a tweet arrives.
+// So far it's a blue blink, then blue-red blink, then red-green blink
 void ledSequence() {
   for(int i=0; i<15; i++) {
     blinkLeds(bluePin, 1000); // #nopin
@@ -115,15 +118,21 @@ void ledSequence() {
   }
 }
 
+// The main loop
 void loop() {
+  // TODO remove this
+  while(true){
+  ledSequence();
+  delay(1000);
+  }
+  
   // if there are incoming bytes available
-  // from the server, read them and print them:
+  // from the server, read them and store the tweet ID
   if (client.available()) {
     char c = client.read();
     //Serial.print(c);
     tweetBuffer += c;
     if(c == '\n') {
-      //Serial.print("Yolo");
       tweetBuffer = "";
     }
   }
@@ -136,13 +145,15 @@ void loop() {
 
     //Serial.println("New tweet id " + tweetBuffer);
     //Serial.println("Last tweet id " + lastTweetId);
+    // Check if the newest tweet ID is different than the last tweet ID
     if(tweetBuffer != lastTweetId && tweetBuffer.length() > 5) {
-      Serial.println("\\o/ " + lastTweetId + " \\o/");
+      Serial.println("\\o/ " + tweetBuffer + " \\o/");
       lastTweetId = tweetBuffer;
+      // If yes, launch the led sequence
       ledSequence();
     }
 
-    // do nothing forevermore:
+    // Wait a while and then restart
     delay(2000);
     getTweetId();
   }
